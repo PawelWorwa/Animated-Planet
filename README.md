@@ -5,5 +5,5 @@
  - [x] blinking stars           
  - [ ] planet - clouds
  - [x] planet - atmosphere  
- - [x] planet - rotating texture
+ - [x] planet - rotating planetTexture
  - [ ] planet - sun effect

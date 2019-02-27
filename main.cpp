@@ -136,7 +136,7 @@ class Background : public sf::Drawable {
 
 // ***************************
 // https://gamedev.stackexchange.com/questions/147193/imitate-a-textured-sphere-in-2d
-const char planetVertex[] =
+const char fakeSphereVertex[] =
         "uniform float currentAngle;"
         "uniform sampler2D texture;"
         "uniform vec4 color;"
@@ -180,12 +180,19 @@ class Planet : public sf::Drawable {
     private:
         sf::CircleShape planet;
         sf::CircleShape atmosphere;
-        sf::Texture texture;
+        sf::CircleShape clouds;
+
+        sf::Texture planetTexture;
+        sf::Texture cloudTexture;
+
+        sf::Shader cloudsShader;
         sf::Shader planetShader;
         sf::Shader atmosphereShader;
+
         sf::Clock rotationClock;
 
         sf::Int32 rotationTick = 100;
+        float planetSize = 200.f;
         float rotationSpeed = 0.001f;
         float currentAngle = 0.0f;
 
@@ -198,21 +205,20 @@ class Planet : public sf::Drawable {
             return {r, g, b, a};
         }
 
-    public:
-        Planet() {
-            texture.loadFromFile( "../world.png" );
-            texture.setRepeated( true );
+        void prepareCircleShape( sf::CircleShape &shape, sf::Texture &texture ) {
+            shape.setTexture( &texture );
+            shape.setRadius( planetSize );
+            shape.setOrigin( shape.getRadius(), shape.getRadius());
+            shape.setPosition( WIDTH / 2.0f, HEIGHT / 2.0f );
+        }
 
-            planet.setTexture( &texture );
-            planet.setRadius( 200.0f );
-            planet.setOrigin( planet.getRadius(), planet.getRadius());
-            planet.setPosition( WIDTH / 2.0f, HEIGHT / 2.0f );
+        void prepareSphereShader( sf::Shader &shader, sf::Color color ) {
+            shader.loadFromMemory( fakeSphereVertex, sf::Shader::Fragment );
+            shader.setUniform( "texture", sf::Shader::CurrentTexture );
+            shader.setUniform( "color", getGlslColor( color ));
+        }
 
-            sf::Color atmosphereColor = sf::Color( 135, 206, 235 );
-            planetShader.loadFromMemory( planetVertex, sf::Shader::Fragment );
-            planetShader.setUniform( "texture", sf::Shader::CurrentTexture );
-            planetShader.setUniform( "color", getGlslColor( atmosphereColor ));
-
+        void prepareAtmosphere( sf::Color atmosphereColor ) {
             float atmosphereRadius = planet.getRadius() + ( planet.getRadius() * 10.f / 110.f );
             atmosphere.setRadius( atmosphereRadius );
             atmosphere.setOrigin( atmosphere.getRadius(), atmosphere.getRadius());
@@ -225,6 +231,26 @@ class Planet : public sf::Drawable {
             atmosphereShader.setUniform( "radius", atmosphere.getRadius());
             atmosphereShader.setUniform( "expand", 0.9f );
             atmosphereShader.setUniform( "windowHeight", static_cast<float>(HEIGHT));
+        }
+
+    public:
+        Planet() {
+            planetTexture.loadFromFile( "../assets/world.png" );
+            planetTexture.setRepeated( true );
+
+            sf::Image image;
+            image.loadFromFile( "../assets/clouds.png" );
+            image.createMaskFromColor( sf::Color::White );
+            cloudTexture.loadFromImage( image );
+            cloudTexture.setRepeated( true );
+
+            prepareCircleShape( clouds, cloudTexture );
+            prepareSphereShader( cloudsShader, sf::Color::Transparent );
+            prepareCircleShape( planet, planetTexture );
+            sf::Color atmosphereColor = sf::Color( 135, 206, 235 );
+            prepareSphereShader( planetShader, atmosphereColor );
+
+            prepareAtmosphere(atmosphereColor);
 
             rotationClock.restart();
         }
@@ -233,6 +259,7 @@ class Planet : public sf::Drawable {
             if ( rotationClock.getElapsedTime().asMilliseconds() > rotationTick ) {
                 currentAngle += rotationSpeed;
                 planetShader.setUniform( "currentAngle", currentAngle );
+                cloudsShader.setUniform( "currentAngle", currentAngle * 2 );
                 rotationClock.restart();
             }
         }
@@ -240,6 +267,7 @@ class Planet : public sf::Drawable {
         void draw( sf::RenderTarget &target, sf::RenderStates states ) const override {
             target.draw( atmosphere, &atmosphereShader );
             target.draw( planet, &planetShader );
+            target.draw( clouds, &cloudsShader );
         }
 };
 
