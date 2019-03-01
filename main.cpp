@@ -7,7 +7,6 @@ const unsigned int randomSeed = static_cast<long unsigned int>(time( nullptr ));
 std::default_random_engine randomDevice( randomSeed );
 std::mt19937 seed( randomDevice());
 
-
 unsigned int randomInt( unsigned int min, unsigned int max ) {
     return std::uniform_int_distribution< unsigned int >{min, max}( seed );
 }
@@ -16,8 +15,8 @@ unsigned int randomInt( unsigned int min, unsigned int max ) {
 class Star {
     protected:
         enum Brightness {
-                NONE = 0,
-                DIM = 50,
+                NONE   = 0,
+                DIM    = 50,
                 MEDIUM = 150,
                 BRIGHT = 200
         };
@@ -136,29 +135,34 @@ class Background : public sf::Drawable {
 
 // ***************************
 // https://gamedev.stackexchange.com/questions/147193/imitate-a-textured-sphere-in-2d
-const char fakeSphereVertex[] =
-        "uniform float currentAngle;"
+// http://clockworkchilli.com/blog/2_3d_shaders_in_a_2d_world
+char shadowVertex[] =
         "uniform sampler2D texture;"
-        "uniform vec4 color;"
-        ""
-        "void main( void ) {"
+        "uniform float currentAngle;"
+
+        "void main(void) {"
+        "   const float PI = 3.141592653589793238462643383;"
+
+        "   vec3 shadow = normalize( vec3( -0.4, -0.3, 0.4 ) );"
         "   vec2 textureCoordinates = gl_TexCoord[0].xy;"
-        "   vec2 p = textureCoordinates * 2.0 - 1.0;"
-        "   float r = sqrt(dot(p, p));"
-        "       if (r < 1.0) {"
-        "           float widthAtHeight = sqrt(1.0 - p.y * p.y);"
-        "           float pi = 3.141592653589;"
-        "           float planetAngle = 0.5;"
-        "           vec2 uv;"
-        "           uv.x = asin(p.x / widthAtHeight ) * 0.5 / pi + currentAngle;"
-        "           uv.y = asin(p.y) * 0.5 / pi + planetAngle + currentAngle / 4.0;"
-        "           gl_FragColor = mix(texture2D(texture, uv), color, 0.25);"
-        "       } else {"
-        "           discard;"
-        "       }"
+        "   vec2 point = ( textureCoordinates - 0.5 )* 2.0;"
+        "   float radius = sqrt( dot( point, point ));"
+
+        "   vec3 normal = vec3( point.x,point.y, sqrt( 1.0 - point.x * point.x - point.y * point.y ));"
+        //  ndotl - it's the dot product of a normalized light vector and a normalized surface normal
+        "   float ndotl = max(0.0, dot(normal, shadow));"
+
+        "   vec2 texCoords;"
+        "   texCoords.x = ( 0.5 + atan( normal.x, normal.z ) / ( 2.0 * PI )) + currentAngle;"
+        "   texCoords.y = asin( normal.y ) / PI - 0.5;"
+
+        "   vec3 texColor = texture2D( texture, texCoords, 0.0 ).xyz;"
+        "   vec3 lightColor = vec3( ndotl ) * texColor;"
+        "   gl_FragColor = radius <= 1.0 ? vec4( lightColor, 1.0 ) : vec4( 0.0 );"
         "}";
 
-const char RadialGradient[] =
+// https://github.com/SFML/SFML/wiki/Source:-Radial-Gradient-Shader
+const char radialGradientVertex[] =
         "uniform vec4 color;"
         "uniform float expand;"
         "uniform vec2 center;"
@@ -167,34 +171,26 @@ const char RadialGradient[] =
         ""
         "void main(void) {"
         "   vec2 centerFromSfml = vec2(center.x, windowHeight - center.y);"
-        "   vec2 p = (gl_FragCoord.xy - centerFromSfml) / radius;"
-        "   float r = sqrt(dot(p, p));"
-        "   if (r < 1.0) {"
-        "       gl_FragColor = mix(color, gl_Color, (r - expand) / (1.0 - expand));"
-        "   } else {"
-        "       discard;"
-        "   }"
+        "   vec2 point = ( gl_FragCoord.xy - centerFromSfml ) / radius;"
+        "   float radius = sqrt( dot( point, point ));"
+        "   gl_FragColor = radius <= 1.0 ? mix( color, gl_Color, ( radius - expand ) / ( 1.0 - expand )) : vec4( 0.0 );"
         "}";
 
 class Planet : public sf::Drawable {
     private:
         sf::CircleShape planet;
         sf::CircleShape atmosphere;
-        sf::CircleShape clouds;
-
         sf::Texture planetTexture;
-        sf::Texture cloudTexture;
 
-        sf::Shader cloudsShader;
         sf::Shader planetShader;
         sf::Shader atmosphereShader;
 
         sf::Clock rotationClock;
 
         sf::Int32 rotationTick = 100;
-        float planetSize = 200.f;
-        float rotationSpeed = 0.001f;
-        float currentAngle = 0.0f;
+        float planetSize       = 200.f;
+        float rotationSpeed    = 0.01f;
+        float currentAngle     = 0.0f;
 
         sf::Glsl::Vec4 getGlslColor( sf::Color color ) {
             float r = 1.f * color.r / 255.f;
@@ -212,20 +208,19 @@ class Planet : public sf::Drawable {
             shape.setPosition( WIDTH / 2.0f, HEIGHT / 2.0f );
         }
 
-        void prepareSphereShader( sf::Shader &shader, sf::Color color ) {
-            shader.loadFromMemory( fakeSphereVertex, sf::Shader::Fragment );
+        void prepareSphereShader( sf::Shader &shader ) {
+            shader.loadFromMemory( shadowVertex, sf::Shader::Fragment );
             shader.setUniform( "texture", sf::Shader::CurrentTexture );
-            shader.setUniform( "color", getGlslColor( color ));
         }
 
         void prepareAtmosphere( sf::Color atmosphereColor ) {
-            float atmosphereRadius = planet.getRadius() + ( planet.getRadius() * 10.f / 110.f );
+            float atmosphereRadius = planet.getRadius() + ( planet.getRadius() * 5.f / 100.f );
             atmosphere.setRadius( atmosphereRadius );
             atmosphere.setOrigin( atmosphere.getRadius(), atmosphere.getRadius());
             atmosphere.setPosition( planet.getPosition());
             atmosphere.setFillColor( sf::Color::Transparent );
 
-            atmosphereShader.loadFromMemory( RadialGradient, sf::Shader::Fragment );
+            atmosphereShader.loadFromMemory( radialGradientVertex, sf::Shader::Fragment );
             atmosphereShader.setUniform( "color", getGlslColor( atmosphereColor ));
             atmosphereShader.setUniform( "center", atmosphere.getPosition());
             atmosphereShader.setUniform( "radius", atmosphere.getRadius());
@@ -235,22 +230,12 @@ class Planet : public sf::Drawable {
 
     public:
         Planet() {
-            planetTexture.loadFromFile( "../assets/world.png" );
+            planetTexture.loadFromFile( "../world.png" );
             planetTexture.setRepeated( true );
 
-            sf::Image image;
-            image.loadFromFile( "../assets/clouds.png" );
-            image.createMaskFromColor( sf::Color::White );
-            cloudTexture.loadFromImage( image );
-            cloudTexture.setRepeated( true );
-
-            prepareCircleShape( clouds, cloudTexture );
-            prepareSphereShader( cloudsShader, sf::Color::Transparent );
             prepareCircleShape( planet, planetTexture );
-            sf::Color atmosphereColor = sf::Color( 135, 206, 235 );
-            prepareSphereShader( planetShader, atmosphereColor );
-
-            prepareAtmosphere(atmosphereColor);
+            prepareSphereShader( planetShader );
+            prepareAtmosphere( sf::Color( 135, 206, 235 ) );
 
             rotationClock.restart();
         }
@@ -259,7 +244,6 @@ class Planet : public sf::Drawable {
             if ( rotationClock.getElapsedTime().asMilliseconds() > rotationTick ) {
                 currentAngle += rotationSpeed;
                 planetShader.setUniform( "currentAngle", currentAngle );
-                cloudsShader.setUniform( "currentAngle", currentAngle * 2 );
                 rotationClock.restart();
             }
         }
@@ -267,13 +251,12 @@ class Planet : public sf::Drawable {
         void draw( sf::RenderTarget &target, sf::RenderStates states ) const override {
             target.draw( atmosphere, &atmosphereShader );
             target.draw( planet, &planetShader );
-            target.draw( clouds, &cloudsShader );
         }
 };
 
 // ***************************
 int main() {
-    sf::RenderWindow window( sf::VideoMode( WIDTH, HEIGHT ), "Procedural planet" );
+    sf::RenderWindow window( sf::VideoMode( WIDTH, HEIGHT ), "Animated planet" );
     window.setFramerateLimit( 30u );
 
     Background starField;
