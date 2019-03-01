@@ -1,19 +1,20 @@
 # Animated-Planet
-prototype
+Prototype for 2D planet (fake sphere) animation with additional stars at background (so it’s not so static) using SFML and shaders.
 
- ToDo:
- - [x] point stars              
- - [x] blinking stars           
- - [x] planet - atmosphere  
- - [x] planet - rotating planetTexture
- - [x] planet - sun effect
+Example:
+![AnimatedPlanet](https://i.imgur.com/hGbfr65.gif)
+
+##### Project assumptions:
+ - [x] background: static stars              
+ - [x] background: blinking stars           
+ - [x] planet: atmosphere  
+ - [x] planet: rotating texture
+ - [x] planet: sun/shadow effect
  
- 
- Gradient shader:
- // https://github.com/SFML/SFML/wiki/Source:-Radial-Gradient-Shader
- 
- fake sphere:
- // https://gamedev.stackexchange.com/questions/147193/imitate-a-textured-sphere-in-2d
- // http://clockworkchilli.com/blog/2_3d_shaders_in_a_2d_world
- 
-![Imgur](https://i.imgur.com/hGbfr65.gifv)
+ ##### Links to discussions or materials that were used:
+ - gradient shader example: [link](https://github.com/SFML/SFML/wiki/Source:-Radial-Gradient-Shader)
+ - fake sphere nice explanation: [link](https://gamedev.stackexchange.com/questions/147193/imitate-a-textured-sphere-in-2d)
+ - fake sphere lighting explained: [link](http://clockworkchilli.com/blog/2_3d_shaders_in_a_2d_world)
+ - project related discussion with examples: [link](https://en.sfml-dev.org/forums/index.php?topic=18655.msg134176#msg134176)
+
+
